@@ -1,7 +1,15 @@
 pan_omics
 ==============================
 
-data exploration and modelling for pan omics dataset. Khavari Lab
+data exploration and modeling for pan omics dataset. Khavari Lab
+
+
+Project Requirements:
+- bedtools
+
+
+To Do:
+- make setup requirements
 
 Project Organization
 ------------

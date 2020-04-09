@@ -2,7 +2,10 @@
 # Margaret Guo
 # pan-omics
 # 04/08/2020
-# how to setup the data
+# how to setup the raw data folder
+###TODO: for future, have raw data folder stored on aws and then we can pull from cloud so only need to create the interim, and processed data fields
+###TODO: external data should be sent to cloud
+
 
 # 1. Figure out which tissues you want
 # edit `tissues.txt` make sure the hyphens and underscores, capitalization is correct
