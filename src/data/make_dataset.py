@@ -2,8 +2,10 @@
 import click
 import logging
 from pathlib import Path
-from dotenv import find_dotenv, load_dotenv
-import src.data.process_rna as process_rna
+import os
+# from dotenv import find_dotenv, load_dotenv
+import process_rna as process_rna
+import process_hichip_1 as process_hichip_1
 
 @click.command()
 @click.argument('input_filepath', type=click.Path(exists=True))
@@ -16,7 +18,12 @@ def main(input_filepath, interim_filepath, output_filepath):
     logger = logging.getLogger(__name__)
     logger.info('making final data set from raw data')
 
-    process_rna.run(input_filepath, interim_filepath)
+    logger.info('processing interim RNA')
+    # process_rna.run(os.path.join(input_filepath,'rna'), os.path.join(interim_filepath,'rna'))
+
+    logger.info('processing interim HICHIP_DIR')
+    # process_hichip_1.make_bedpe(os.path.join(input_filepath,'hichip'), os.path.join(interim_filepath,'hichip'))
+    process_hichip_1.make_csvs(os.path.join(interim_filepath,'hichip'), os.path.join(interim_filepath,'merged'))
 
 
 
@@ -31,9 +38,9 @@ if __name__ == '__main__':
 
     # not used in this stub but often useful for finding various files
     project_dir = Path(__file__).resolve().parents[2]
-
-    # find .env automagically by walking up directories until it's found, then
-    # load up the .env entries as environment variables
-    load_dotenv(find_dotenv())
+    print(project_dir)
+    # # find .env automagically by walking up directories until it's found, then
+    # # load up the .env entries as environment variables
+    # load_dotenv(find_dotenv())
 
     main()
