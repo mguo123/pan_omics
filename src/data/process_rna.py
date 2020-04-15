@@ -6,7 +6,7 @@ Make TPM/FPKM matrix
 4/09/2020 - from `make_rna_mat.ipynb` 12/19/2019
 
 """
-
+import subprocess
 import os, glob
 import pandas as pd
 from collections import defaultdict, Counter
@@ -16,9 +16,9 @@ def run(input_filepath, output_filepath, extension=".genes.results"):
     Make TPM/FPKM matrix
 
     """
-    output_rna_dir = os.path.join(output_filepath, 'rna')
-    if not os.path.exists(output_rna_dir):
-        os.makedirs(output_rna_dir)
+    print('processing RNA')
+    if not os.path.exists(output_filepath):
+        os.makedirs(output_filepath)
 
     tissue_to_sample_tpm = defaultdict(dict)
     tissue_to_sample_fpkm = defaultdict(dict)
@@ -34,7 +34,7 @@ def run(input_filepath, output_filepath, extension=".genes.results"):
 
             if filepath.endswith(extension) :
                 sample = filename.split(extension)[0]
-                print (tissue, sample)
+                print ('extracted', tissue, sample)
 
                 df = pd.read_table(filepath, header=0)
                 gene_to_tpm = pd.Series(df.TPM.values, index=df.gene_id.values).to_dict()
@@ -55,5 +55,11 @@ def run(input_filepath, output_filepath, extension=".genes.results"):
     fpkm_df = pd.DataFrame(tissue_fpkm_dict)
     fpkm_df = fpkm_df.reindex(sorted(fpkm_df.columns), axis=1)
 
-    tpm_df.to_csv(os.path.join(output_rna_dir,'tissue_tpm.csv'))
-    fpkm_df.to_csv(os.path.join(output_rna_dir,'tissue_fpkm.csv'))
+    tpm_df.to_csv(os.path.join(output_filepath,'tissue_tpm.csv'))
+    fpkm_df.to_csv(os.path.join(output_filepath,'tissue_fpkm.csv'))
+
+
+    ###TODO: figure out how to make this silent
+    subprocess.call (["Rscript", "--vanilla",
+            "process_rna.R",
+            output_filepath])
