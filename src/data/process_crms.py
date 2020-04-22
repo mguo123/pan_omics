@@ -67,10 +67,10 @@ def create_crm_batch(rna_file, tf_annon_file, annon_file_path, loop_file_path,
         all_count_overall = pd.DataFrame()
 
     # loop through tissue
-    for loop_file in glob.glob(os.path.join(loop_file_path, "*.loops.csv")):
+    for loop_file in sorted(glob.glob(os.path.join(loop_file_path, "*.loops.csv"))):
         tissue = os.path.basename(loop_file).split('.loops.csv')[0]
-        # #### DEBUG:
-        # if tissue !='CAL27-CTRLi':
+        # # #### DEBUG:
+        # if tissue !='WM_shMITF_PLX':
         #     continue
         print('creating crms for tissue', tissue)
         files_dict['tissue'] = tissue
@@ -80,44 +80,53 @@ def create_crm_batch(rna_file, tf_annon_file, annon_file_path, loop_file_path,
         if os.path.isfile(atac_annon_file_promoter):
             files_dict['atac_annon_file_promoter'] = atac_annon_file_promoter
         else:
-            raise ValueError("atac_annon_file_promoter file not found", atac_annon_file_promoter)
+            print("atac_annon_file_promoter file not found", atac_annon_file_promoter)
+            continue
 
         atac_annon_file_anchor = os.path.join(annon_file_path, 'anchor_atac', tissue+'_annon.bed')
         if os.path.isfile(atac_annon_file_anchor):
             files_dict['atac_annon_file_anchor'] = atac_annon_file_anchor
         else:
-            raise ValueError("atac_annon_file_anchor file not found", atac_annon_file_anchor)
+            print("atac_annon_file_anchor file not found", atac_annon_file_anchor)
+            continue
 
         footprinting_annon_file_promoter = os.path.join(annon_file_path, 'promoter_footprinting', 'promoter_'+tissue+'_annon.bed')
         if os.path.isfile(footprinting_annon_file_promoter):
             files_dict['footprinting_annon_file_promoter'] = footprinting_annon_file_promoter
         else:
-            raise ValueError("footprinting_annon_file_promoter file not found", footprinting_annon_file_promoter)
+            print("footprinting_annon_file_promoter file not found", footprinting_annon_file_promoter)
+            continue
 
         footprinting_annon_file_anchor = os.path.join(annon_file_path, 'anchor_footprinting', tissue+'_annon.bed')
         if os.path.isfile(footprinting_annon_file_anchor):
             files_dict['footprinting_annon_file_anchor'] = footprinting_annon_file_anchor
         else:
-            raise ValueError("footprinting_annon_file_anchor file not found", footprinting_annon_file_anchor)
+            print("footprinting_annon_file_anchor file not found", footprinting_annon_file_anchor)
+            continue
 
         anchor_promoter_file = os.path.join(annon_file_path, 'promoter_anchors', 'promoter_'+tissue+'_annon.bed')
         if os.path.isfile(anchor_promoter_file):
             files_dict['anchor_promoter_file'] = anchor_promoter_file
         else:
-            raise ValueError("anchor_promoter_file file not found", anchor_promoter_file)
+            print("anchor_promoter_file file not found", anchor_promoter_file)
+            continue
 
         #
         print('file check passed')
         print(files_dict)
         # run crms
+        crm_result = create_crm_per_tissue(files_dict,type=type, THRES=THRES, verbose=verbose )
+        if crm_result is None:
+            continue
+
         if type=='all':
-            all_count_pro, all_count_sep, all_count_comb, all_count_sum = create_crm_per_tissue(files_dict,type=type, THRES=THRES, verbose=verbose )
+            all_count_pro, all_count_sep, all_count_comb, all_count_sum = crm_result
             all_count_pro_overall = pd.concat([all_count_pro_overall, all_count_pro],sort=False).fillna(0)
             all_count_sep_overall = pd.concat([all_count_sep_overall, all_count_sep],sort=False).fillna(0)
             all_count_comb_overall = pd.concat([all_count_comb_overall, all_count_comb],sort=False).fillna(0)
             all_count_sum_overall = pd.concat([all_count_sum_overall, all_count_sum],sort=False).fillna(0)
         else:
-            tissue_all_count = create_crm_per_tissue(files_dict,type=type, THRES=THRES, verbose=verbose )
+            tissue_all_count = crm_result
             all_count_overall = pd.concat([all_count_overall, all_count_sum],sort=False).fillna(0)
 
     # end tissue loop
@@ -158,7 +167,8 @@ def create_crm_per_tissue(files_dict,type='all', THRES=1, verbose=False ):
     annon_dict =get_tf_dict(files_dict['tf_annon_file'])
 
     if tissue not in list(rna_df.columns.values):
-        raise ValueError('tissue not found in rna matrix', tissue)
+        print ('tissue not found in rna matrix', tissue)
+        return None
 
     results_promoter = crm_annotation(files_dict['atac_annon_file_promoter'],
                             files_dict['footprinting_annon_file_promoter'],
