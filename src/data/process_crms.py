@@ -70,7 +70,7 @@ def create_crm_batch(rna_file, tf_annon_file, annon_file_path, loop_file_path,
     for loop_file in glob.glob(os.path.join(loop_file_path, "*.loops.csv")):
         tissue = os.path.basename(loop_file).split('.loops.csv')[0]
         # #### DEBUG:
-        # if tissue !='COLO_SCR_PLX':
+        # if tissue !='CAL27-CTRLi':
         #     continue
         print('creating crms for tissue', tissue)
         files_dict['tissue'] = tissue
@@ -153,9 +153,12 @@ def create_crm_per_tissue(files_dict,type='all', THRES=1, verbose=False ):
             'anchor_loop_comb': include anchor and loop information summed, will include "_pro" and "_loop" suffixes
             'sum': agg all "_pro" "_anc" and "_loop", no suffixes
     """
+    tissue = files_dict['tissue']
     rna_df = read_rna_file(files_dict['rna_file'])
     annon_dict =get_tf_dict(files_dict['tf_annon_file'])
 
+    if tissue not in list(rna_df.columns.values):
+        raise ValueError('tissue not found in rna matrix', tissue)
 
     results_promoter = crm_annotation(files_dict['atac_annon_file_promoter'],
                             files_dict['footprinting_annon_file_promoter'],
@@ -168,7 +171,6 @@ def create_crm_per_tissue(files_dict,type='all', THRES=1, verbose=False ):
                             loop_file = files_dict['loop_file'])
 
     # create file DataFrame
-    tissue = files_dict['tissue']
     all_tfs = annon_dict.values()
     all_tf_all_tss = pd.DataFrame( index=rna_df.index)
     all_tf_all_tss['tissue'] = tissue

@@ -22,8 +22,8 @@ if (length(args)==0) {
 dirname = args[1]
 print(dirname)
 
-tpm_df = read.csv(paste0(dirname, '/tissue_tpm.csv'),row.names=1)
-fpkm_df = read.csv(paste0(dirname, '/tissue_fpkm.csv'),row.names=1)
+tpm_df = read.csv(paste0(dirname, '/tissue_tpm.csv'),row.names=1,check.names = FALSE)
+fpkm_df = read.csv(paste0(dirname, '/tissue_fpkm.csv'),row.names=1,check.names = FALSE)
 
 ######################### MAPPING SYMBOLS ##########################
 
