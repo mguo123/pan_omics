@@ -37,8 +37,10 @@ def run(input_filepath, output_filepath, extension=".genes.results"):
                 print ('extracted', tissue, sample)
 
                 df = pd.read_table(filepath, header=0)
-                gene_to_tpm = pd.Series(df.TPM.values, index=df.gene_id.values).to_dict()
-                gene_to_fpkm = pd.Series(df.FPKM.values, index=df.gene_id.values).to_dict()
+                df['gene_id_short']=df['gene_id'].str.split(".",expand=True).loc[:,0]
+
+                gene_to_tpm = pd.Series(df.TPM.values, index=df.gene_id_short.values).to_dict()
+                gene_to_fpkm = pd.Series(df.FPKM.values, index=df.gene_id_short.values).to_dict()
                 tissue_to_sample_tpm[tissue][sample] = gene_to_tpm
                 tissue_to_sample_fpkm[tissue][sample] = gene_to_fpkm
 
@@ -57,9 +59,7 @@ def run(input_filepath, output_filepath, extension=".genes.results"):
 
     tpm_df.to_csv(os.path.join(output_filepath,'tissue_tpm.csv'))
     fpkm_df.to_csv(os.path.join(output_filepath,'tissue_fpkm.csv'))
-
-
     ###TODO: figure out how to make this silent
     subprocess.call (["Rscript", "--vanilla",
-            "process_rna.R",
+            "src/data/process_rna.R",
             output_filepath])

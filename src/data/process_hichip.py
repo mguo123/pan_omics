@@ -1,5 +1,5 @@
 """
-process_hichip_1.py
+process_hichip.py
 
 Margaret Guo
 
@@ -63,7 +63,6 @@ def make_bedpe(input_filepath, output_filepath, split_delim = '.', extension=".b
                 cmd = subprocess.run(str(' '.join(cmd_arr)),shell=True, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
-
 ###TODO comment
 def hichip_to_df(bedpe_file):
     """
@@ -103,10 +102,6 @@ def hichip_to_anchor(hichip_df, sample):
     return anchors_df
 
 
-
-
-
-
 def make_csvs(input_filepath, output_filepath, split_delim = '.', extension=".loop_counts.bedpe", type_prefix='', verbose=True):
     """
     takes *.loop_counts.bedpe files  make .loop_counts.csv and .anchors.csv (separate samples),
@@ -123,7 +118,7 @@ def make_csvs(input_filepath, output_filepath, split_delim = '.', extension=".lo
 
     Return: none
     """
-    print('processing HiChIP 2.. loop_counts.bedpe to csv files,  merge by tissue, create bed files')
+    print('processing HiChIP 2.. loop_counts.bedpe to csv files,  merge by tissue, create bed anchor files')
 
     # set up file paths
     if not os.path.exists(output_filepath):
@@ -192,7 +187,15 @@ def make_csvs(input_filepath, output_filepath, split_delim = '.', extension=".lo
             print('merged loops', tissue, merged_loop_df.shape)
             print('merged anchors', tissue, merged_anchor_df.shape)
         if merged_loop_df.shape[0]>0:
-            merged_loop_df.to_csv(os.path.join(loops_dir, tissue+type_prefix+'loops.csv'))
+            merged_loop_df.to_csv(os.path.join(loops_dir, tissue+type_prefix+'.loops.csv'))
             merged_anchor_df.to_csv(os.path.join(anchors_dir, tissue+type_prefix+'.anchors.csv'))
             merged_anchor_df = merged_anchor_df[['chr','start','end', 'anchors']]
             merged_anchor_df.to_csv(os.path.join(anchors_bed_dir, tissue+type_prefix+'.anchors.bed'),sep='\t', index=False, header=False)
+
+
+
+
+
+
+
+# def sort_bed_file(input_bedfile,ouput_bedfile):

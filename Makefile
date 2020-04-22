@@ -9,6 +9,8 @@ BUCKET = [OPTIONAL] your-bucket-for-syncing-data (do not include 's3://')
 PROFILE = default
 PROJECT_NAME = pan_omics
 PYTHON_INTERPRETER = python3
+R_INTERPRETER = R
+RSCRIPT_INTERPRETER = Rscript
 
 ifeq (,$(shell which conda))
 HAS_CONDA=False
@@ -22,14 +24,15 @@ endif
 
 ## Install Python Dependencies
 requirements: test_environment
-	$(PYTHON_INTERPRETER) -m pip install -U pip setuptools wheel
-	$(PYTHON_INTERPRETER) -m pip install -r requirements.txt
+	####TODO REMOVE LATER!!!!
+	# $(PYTHON_INTERPRETER) -m pip install -U pip setuptools wheel
+	# $(PYTHON_INTERPRETER) -m pip install -r requirements.txt
 
 ## Make Dataset
 data: requirements
 	[ -d data/interim ] || mkdir data/interim
 	[ -d data/processed ] || mkdir data/processed
-	$(PYTHON_INTERPRETER) src/data/make_dataset.py data/raw data/interim data/processed
+	$(PYTHON_INTERPRETER) src/data/make_dataset.py data/raw data/interim data/processed data/external
 
 ## Delete all compiled Python files
 clean:
