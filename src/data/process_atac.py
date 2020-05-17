@@ -35,7 +35,7 @@ def preprocess_footprinting(input_filepath, output_filepath,split_delim = '.', e
 
     # read file
     for subdir, dirs, files in os.walk(input_filepath):
-        for filename in files:
+        for filename in sorted(files):
             tissue = os.path.basename(subdir)
             input_filepath = subdir + os.sep + filename
             output_filepath_tissue = os.path.join(output_filepath, tissue)

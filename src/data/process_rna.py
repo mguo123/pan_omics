@@ -25,6 +25,9 @@ def run(input_filepath, output_filepath, extension=".genes.results"):
 
     tissue_tpm_dict = {}
     tissue_fpkm_dict = {}
+    sample_tpm_dict = {}
+    sample_fpkm_dict = {}
+
 
     # read file
     for subdir, dirs, files in os.walk(input_filepath):
@@ -43,6 +46,8 @@ def run(input_filepath, output_filepath, extension=".genes.results"):
                 gene_to_fpkm = pd.Series(df.FPKM.values, index=df.gene_id_short.values).to_dict()
                 tissue_to_sample_tpm[tissue][sample] = gene_to_tpm
                 tissue_to_sample_fpkm[tissue][sample] = gene_to_fpkm
+                sample_tpm_dict[sample] = gene_to_tpm
+                sample_fpkm_dict[sample] = gene_to_fpkm
 
     # tissue_to_sample_tpm
     for tissue in tissue_to_sample_tpm.keys():
@@ -51,15 +56,27 @@ def run(input_filepath, output_filepath, extension=".genes.results"):
         tissue_tpm_dict[tissue] = mean_gene_tpm
         tissue_fpkm_dict[tissue] = mean_gene_fpkm
 
-    tpm_df = pd.DataFrame(tissue_tpm_dict)
-    tpm_df = tpm_df.reindex(sorted(tpm_df.columns), axis=1)
+    # tpm_df = pd.DataFrame(tissue_tpm_dict)
+    # tpm_df = tpm_df.reindex(sorted(tpm_df.columns), axis=1)
+    #
+    # fpkm_df = pd.DataFrame(tissue_fpkm_dict)
+    # fpkm_df = fpkm_df.reindex(sorted(fpkm_df.columns), axis=1)
+    #
+    # tpm_df.to_csv(os.path.join(output_filepath,'tissue_tpm.csv'))
+    # fpkm_df.to_csv(os.path.join(output_filepath,'tissue_fpkm.csv'))
 
-    fpkm_df = pd.DataFrame(tissue_fpkm_dict)
-    fpkm_df = fpkm_df.reindex(sorted(fpkm_df.columns), axis=1)
+    make_rna_df(tissue_tpm_dict, os.path.join(output_filepath,'tissue_tpm.csv'))
+    make_rna_df(tissue_fpkm_dict, os.path.join(output_filepath,'tissue_fpkm.csv'))
+    make_rna_df(sample_tpm_dict, os.path.join(output_filepath,'sample_tpm.csv'))
+    make_rna_df(sample_fpkm_dict, os.path.join(output_filepath,'sample_fpkm.csv'))
 
-    tpm_df.to_csv(os.path.join(output_filepath,'tissue_tpm.csv'))
-    fpkm_df.to_csv(os.path.join(output_filepath,'tissue_fpkm.csv'))
     ###TODO: figure out how to make this silent
     subprocess.call (["Rscript", "--vanilla",
             "src/data/process_rna.R",
             output_filepath])
+
+def make_rna_df(key_rnaval_dict, save_path=None):
+    df = pd.DataFrame(key_rnaval_dict)
+    df = df.reindex(sorted(df.columns), axis=1)
+    if save_path is not None:
+        df.to_csv(save_path)

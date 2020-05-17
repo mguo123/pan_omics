@@ -55,7 +55,7 @@ def annotate_batch(input, db_dir, output_dir, extensions=['.bed','.bed'],f=1E-9,
         os.makedirs(output_dir)
 
     if os.path.isdir(input):
-        for input_filepath in glob.glob(os.path.join(input, "*"+extensions[0])):
+        for input_filepath in sorted(glob.glob(os.path.join(input, "*"+extensions[0]))):
             input_filename = os.path.basename(input_filepath)
             tissue = input_filename.split(extensions[0])[0]
 
@@ -71,7 +71,7 @@ def annotate_batch(input, db_dir, output_dir, extensions=['.bed','.bed'],f=1E-9,
     elif os.path.isfile(input):
         input_filename = os.path.basename(input)
         input_prefix = input_filename.split(extensions[0])[0]
-        for db_filepath in glob.glob(os.path.join(db_dir, "*"+extensions[1])):
+        for db_filepath in sorted(glob.glob(os.path.join(db_dir, "*"+extensions[1]))):
             db = os.path.basename(db_filepath).split(extensions[1])[0]
             output_filepath = os.path.join(output_dir, input_prefix+"_"+db+'_annon.bed')
             # print('input',input)

@@ -27,6 +27,7 @@ files_dict = {
 
 def create_crm_batch(rna_file, tf_annon_file, annon_file_path, loop_file_path,
                      output_dir,files_dict=files_dict, type='all',
+                     tissues_sel = None,
                      THRES=1, verbose=False):
     """
     takes in a couple file paths, for each tissue
@@ -57,18 +58,21 @@ def create_crm_batch(rna_file, tf_annon_file, annon_file_path, loop_file_path,
     if not os.path.isdir(loop_file_path):
         raise ValueError("Need to run hichip preprocessing to get *.loops.csv files")
 
-    # setup global variables
-    if type=='all':
-        all_count_pro_overall = pd.DataFrame()
-        all_count_sep_overall = pd.DataFrame()
-        all_count_comb_overall = pd.DataFrame()
-        all_count_sum_overall = pd.DataFrame()
-    else:
-        all_count_overall = pd.DataFrame()
+    # # setup global variables
+    # if type=='all':
+    #     all_count_pro_overall = pd.DataFrame()
+    #     all_count_sep_overall = pd.DataFrame()
+    #     all_count_comb_overall = pd.DataFrame()
+    #     all_count_sum_overall = pd.DataFrame()
+    # else:
+    #     all_count_overall = pd.DataFrame()
 
     # loop through tissue
     for loop_file in sorted(glob.glob(os.path.join(loop_file_path, "*.loops.csv"))):
         tissue = os.path.basename(loop_file).split('.loops.csv')[0]
+        if tissues_sel is not None:
+            if tissue not in tissues_sel:
+                continue
         # # #### DEBUG:
         # if tissue !='WM_shMITF_PLX':
         #     continue
@@ -116,29 +120,59 @@ def create_crm_batch(rna_file, tf_annon_file, annon_file_path, loop_file_path,
         print(files_dict)
         # run crms
         crm_result = create_crm_per_tissue(files_dict,type=type, THRES=THRES, verbose=verbose )
-        if crm_result is None:
-            continue
+        # if crm_result is None:
+        #     continue
 
-        if type=='all':
-            all_count_pro, all_count_sep, all_count_comb, all_count_sum = crm_result
-            all_count_pro_overall = pd.concat([all_count_pro_overall, all_count_pro],sort=False).fillna(0)
-            all_count_sep_overall = pd.concat([all_count_sep_overall, all_count_sep],sort=False).fillna(0)
-            all_count_comb_overall = pd.concat([all_count_comb_overall, all_count_comb],sort=False).fillna(0)
-            all_count_sum_overall = pd.concat([all_count_sum_overall, all_count_sum],sort=False).fillna(0)
-        else:
-            tissue_all_count = crm_result
-            all_count_overall = pd.concat([all_count_overall, all_count_sum],sort=False).fillna(0)
+        # if type=='all':
+        #     all_count_pro, all_count_sep, all_count_comb, all_count_sum = crm_result
+            # all_count_pro_overall = pd.concat([all_count_pro_overall, all_count_pro],sort=False).fillna(0)
+            # all_count_sep_overall = pd.concat([all_count_sep_overall, all_count_sep],sort=False).fillna(0)
+            # all_count_comb_overall = pd.concat([all_count_comb_overall, all_count_comb],sort=False).fillna(0)
+            # all_count_sum_overall = pd.concat([all_count_sum_overall, all_count_sum],sort=False).fillna(0)
+        # else:
+        #     tissue_all_count = crm_result
+            # all_count_overall = pd.concat([all_count_overall, all_count_sum],sort=False).fillna(0)
 
     # end tissue loop
     # saving
-    if type=='all':
-        all_count_pro_overall.to_csv(os.path.join(output_dir,'all_count_pro_overall.csv'))
-        all_count_sep_overall.to_csv(os.path.join(output_dir,'all_count_sep_overall.csv'))
-        all_count_comb_overall.to_csv(os.path.join(output_dir,'all_count_comb_overall.csv'))
-        all_count_sum_overall.to_csv(os.path.join(output_dir,'all_count_sum_overall.csv'))
-    else:
-        tissue_all_count = create_crm_per_tissue(files_dict,type=type, THRES=THRES, verbose=verbose )
-        all_count_overall.to_csv(os.path.join(output_dir,'all_count_overall_{}.csv'.format(type)))
+    if verbose:
+        print('saving overall data tables')
+    write_all_data_tables(output_dir, type='promoter_only_tissue', save_prefix='pro')
+    write_all_data_tables(output_dir, type='pro_anc_loop_tissue', save_prefix='sep')
+    write_all_data_tables(output_dir, type='pro_loop_tissue', save_prefix='comb')
+    write_all_data_tables(output_dir, type='combined_tissue', save_prefix='sum')
+
+    # if type=='all':
+    #     all_count_pro_overall.to_csv(os.path.join(output_dir,'all_count_pro_overall.csv'))
+    #     all_count_sep_overall.to_csv(os.path.join(output_dir,'all_count_sep_overall.csv'))
+    #     all_count_comb_overall.to_csv(os.path.join(output_dir,'all_count_comb_overall.csv'))
+    #     all_count_sum_overall.to_csv(os.path.join(output_dir,'all_count_sum_overall.csv'))
+    # else:
+    #     tissue_all_count = create_crm_per_tissue(files_dict,type=type, THRES=THRES, verbose=verbose )
+    #     all_count_overall.to_csv(os.path.join(output_dir,'all_count_overall_{}.csv'.format(type)))
+
+
+def write_all_data_tables(output_dir, type='promoter_only_tissue', save_prefix='pro'):
+
+    """
+    writing overall data table,
+
+    Arguments:
+        output_dir: where to save to
+        type = options 'promoter_only_tissue', 'pro_anc_loop_tissue', 'pro_loop_tissue', 'combined_tissue'
+        which pairs with
+        save_prefix = options 'pro', 'sep', 'comb', 'sum', respectively
+    Return: None
+
+    """
+    all_count_overall = pd.DataFrame()
+
+    for tissue_crm_file in sorted(glob.glob(os.path.join(output_dir, type, '*csv'))):
+        all_count = pd.read_csv(tissue_crm_file, index_col=0)
+        all_count_overall = pd.concat([all_count_overall, all_count],sort=False).fillna(0)
+
+    all_count_overall.to_csv(os.path.join(output_dir,'all_count_'+ save_prefix + '_overall.csv'))
+
 
 
 def create_crm_per_tissue(files_dict,type='all', THRES=1, verbose=False ):
@@ -285,7 +319,7 @@ def crm_annotation(atac_annon_file, footprinting_annon_file,rna_df,annon_dict,ti
         # anchor_promoter_file = '../data/interim/annon/promoter_anchors/promoter_GDSD3_annon.bed'
         anchor_annon_df = pd.read_csv(anchor_promoter_file,sep='\t',header=None)
         anchor_annon_df.columns = ['chr_p','start_p','stop_p','TSS','chr_f','start_f','stop_f','anchor','overlap']
-        anchor_annon_df_filt = anchor_annon_df.groupby('TSS').apply(lambda x: x.nlargest(1, "overlap")).reset_index(drop=True)
+        anchor_annon_df_filt = anchor_annon_df.sort_values('overlap', ascending=False).drop_duplicates(['TSS','anchor']).sort_index()
         anchor_annon_df_filt = anchor_annon_df_filt[['anchor','TSS']]
         # get footprints of the "annotated-with-TSS" anchor regions, then make the counts DataFrame
         foot_df_anchor = foot_df.merge(anchor_annon_df_filt,how='inner', left_on='p_loc',right_on='anchor')

@@ -44,7 +44,7 @@ def make_bedpe(input_filepath, output_filepath, split_delim = '.', extension=".b
 
     # read file
     for subdir, dirs, files in os.walk(input_filepath):
-        for filename in files:
+        for filename in sorted(files):
             tissue = os.path.basename(subdir)
             input_filepath = subdir + os.sep + filename
             output_filepath_tissue = os.path.join(output_filepath, tissue)
@@ -142,7 +142,7 @@ def make_csvs(input_filepath, output_filepath, split_delim = '.', extension=".lo
         merged_anchor_df = pd.DataFrame()
 
         # loop through tissue folder
-        for file_idx, filename in enumerate(files):
+        for file_idx, filename in enumerate(sorted(files)):
 
             input_filepath = os.path.join(subdir, filename )# bedpe file
             output_filepath_tissue = subdir

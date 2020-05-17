@@ -10,6 +10,7 @@ import process_atac as process_atac
 import process_bedtools as process_bedtools
 import process_crms as process_crms
 
+##TODO: make workflow for single tissue
 ###TODO: snakemake this workflow
 @click.command()
 @click.argument('input_filepath', type=click.Path(exists=True))
@@ -50,10 +51,10 @@ def main(input_filepath, interim_filepath, output_filepath, external_filepath):
     #                 os.path.join(interim_filepath,'annon/promoter_footprinting'),
     #                 extensions=['_hg19_2000_500_sort.bed','_merged.bed'],f=1E-6, wo=False)
     # logger.info('annotating promoters with anchors that are close by')
-    # region_search_file = os.path.join(external_filepath,'promoter_hg19_5000_5000_sort.bed')
-    # process_bedtools.annotate_batch(region_search_file, os.path.join(interim_filepath,'merged/anchors_bed_sort'),
-    #                 os.path.join(interim_filepath,'annon/promoter_anchors'),
-    #                 extensions=['_hg19_5000_5000_sort.bed','_sort.bed'],f=1E-9, wo=True)
+    region_search_file = os.path.join(external_filepath,'promoter_hg19_5000_5000_sort.bed')
+    process_bedtools.annotate_batch(region_search_file, os.path.join(interim_filepath,'merged/anchors_bed_sort'),
+                    os.path.join(interim_filepath,'annon/promoter_anchors'),
+                    extensions=['_hg19_5000_5000_sort.bed','_sort.bed'],f=1E-9, wo=True)
 
     logger.info('annotating anchors')
     # process_bedtools.annotate_batch(os.path.join(interim_filepath,'merged/anchors_bed_sort'),
@@ -72,7 +73,10 @@ def main(input_filepath, interim_filepath, output_filepath, external_filepath):
     loop_file_path = os.path.join(interim_filepath, 'merged/loops')
     output_dir = os.path.join(output_filepath,'tissue_crms')
     process_crms.create_crm_batch(rna_file, tf_annon_file, annon_file_path, loop_file_path,
-                         output_dir,type='all',THRES=1)
+                         output_dir,tissues_sel = ['Airway', 'Pancreas', 'Uterine'],
+                         type='all',THRES=1)
+    # process_crms.create_crm_batch(rna_file, tf_annon_file, annon_file_path, loop_file_path,
+    #                      output_dir,type='all',THRES=1)
 
 
 
