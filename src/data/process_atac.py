@@ -18,16 +18,17 @@ done
 import os,sys, glob
 import subprocess
 import pybedtools
+import pandas as pd
 
-def preprocess_footprinting(input_filepath, output_filepath,split_delim = '.', extension=".bed", verbose=True):
+def preprocess_footprinting(input_filepath, output_filepath,split_delim = '.', type_prefix='', extension=".bed", verbose=True):
     """
     # Remove tab from end of footprinting files, and saving in interim files, same directory structure as raw
 
     """
-    print('processing Footprinting 1 .. bed to loop_counts.bedpe')
+    print('processing Footprinting .. ')
 
-    cmd_template1 = """sed 's/[[:blank:]]*$//' $f > $f2"""
-    cmd_arr1 = cmd_template1.split()
+    # cmd_template1 = """sed 's/[[:blank:]]*$//' $f > $f2"""
+    # cmd_arr1 = cmd_template1.split()
     # replace cmd_arr1[2] and cmd_arr1[-1]
 
     if not os.path.exists(output_filepath):
@@ -35,20 +36,31 @@ def preprocess_footprinting(input_filepath, output_filepath,split_delim = '.', e
 
     # read file
     for subdir, dirs, files in os.walk(input_filepath):
+        tissue = os.path.basename(subdir)
+        bedtool_obj = None
+
         for filename in sorted(files):
-            tissue = os.path.basename(subdir)
-            input_filepath = subdir + os.sep + filename
+            input_filepath = os.path.join(subdir, filename )#  file full path
+
             output_filepath_tissue = os.path.join(output_filepath, tissue)
 
 
             if filename.endswith(extension) :
-                if not os.path.exists(output_filepath_tissue):
-                    os.makedirs(output_filepath_tissue)
+                # if not os.path.exists(output_filepath_tissue):
+                #     os.makedirs(output_filepath_tissue)
                 sample = filename.split(split_delim)[0]
-                output_file1 = os.path.join(output_filepath_tissue, filename.split(extension)[0] + "_pre.bed")
-                cmd_arr1[2] = input_filepath
-                cmd_arr1[-1] = output_file1
-                cmd1 = subprocess.run(str(' '.join(cmd_arr1)),shell=True, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                bedtool_df = pd.read_csv(input_filepath, sep='\t', header=None)
+
+                if bedtool_obj is None:
+
+                    bedtool_obj = pybedtools.BedTool.from_dataframe(bedtool_df.loc[:,:6])
+                else:
+                    bedtool_obj = bedtool_obj.cat(pybedtools.BedTool.from_dataframe(bedtool_df.loc[:,:6]))
+
+                # output_file1 = os.path.join(output_filepath_tissue, filename.split(extension)[0] + "_pre.bed")
+                # cmd_arr1[2] = input_filepath
+                # cmd_arr1[-1] = output_file1
+                # cmd1 = subprocess.run(str(' '.join(cmd_arr1)),shell=True, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 # # sorting
                 # output_file2 = os.path.join(output_filepath_tissue, filename.split(extension)[0] + "_sort.bed")
                 # bedtool_obj = pybedtools.BedTool(output_file1)
@@ -56,6 +68,13 @@ def preprocess_footprinting(input_filepath, output_filepath,split_delim = '.', e
                 if verbose:
                     print ('preprocessing footprinting... ', tissue, sample)
                     # print(' '.join(cmd_arr1))
+        # save tissue files post merge + save bedfile
+
+        if bedtool_obj is not None:
+            if verbose:
+                print('num peaks', tissue, bedtool_obj.count())
+            bedtool_obj.sort().saveas(os.path.join(output_filepath, tissue+type_prefix+'_merged.bed'))
+
 
 
 def merge_samples(input_filepath, output_filepath, split_delim = '.bed', extension=".bed", type_prefix='', verbose=True):

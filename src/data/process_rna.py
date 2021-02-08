@@ -13,7 +13,7 @@ from collections import defaultdict, Counter
 
 def run(input_filepath, output_filepath, extension=".genes.results"):
     """
-    Make TPM/FPKM matrix
+    Make TPM/FPKM/count matrix
 
     """
     print('processing RNA')
@@ -22,11 +22,14 @@ def run(input_filepath, output_filepath, extension=".genes.results"):
 
     tissue_to_sample_tpm = defaultdict(dict)
     tissue_to_sample_fpkm = defaultdict(dict)
+    tissue_to_sample_count = defaultdict(dict)
 
     tissue_tpm_dict = {}
     tissue_fpkm_dict = {}
+    tissue_count_dict = {}
     sample_tpm_dict = {}
     sample_fpkm_dict = {}
+    sample_count_dict = {}
 
 
     # read file
@@ -44,17 +47,22 @@ def run(input_filepath, output_filepath, extension=".genes.results"):
 
                 gene_to_tpm = pd.Series(df.TPM.values, index=df.gene_id_short.values).to_dict()
                 gene_to_fpkm = pd.Series(df.FPKM.values, index=df.gene_id_short.values).to_dict()
+                gene_to_count = pd.Series(df.expected_count.values, index=df.gene_id_short.values).to_dict()
                 tissue_to_sample_tpm[tissue][sample] = gene_to_tpm
                 tissue_to_sample_fpkm[tissue][sample] = gene_to_fpkm
+                tissue_to_sample_count[tissue][sample] = gene_to_count
                 sample_tpm_dict[sample] = gene_to_tpm
                 sample_fpkm_dict[sample] = gene_to_fpkm
+                sample_count_dict[sample] = gene_to_count
 
     # tissue_to_sample_tpm
     for tissue in tissue_to_sample_tpm.keys():
         mean_gene_tpm = pd.Series(pd.DataFrame(tissue_to_sample_tpm[tissue]).mean(axis=1)).to_dict()
         mean_gene_fpkm = pd.Series(pd.DataFrame(tissue_to_sample_fpkm[tissue]).mean(axis=1)).to_dict()
+        mean_gene_count = pd.Series(pd.DataFrame(tissue_to_sample_count[tissue]).mean(axis=1)).to_dict()
         tissue_tpm_dict[tissue] = mean_gene_tpm
         tissue_fpkm_dict[tissue] = mean_gene_fpkm
+        tissue_count_dict[tissue] = mean_gene_count
 
     # tpm_df = pd.DataFrame(tissue_tpm_dict)
     # tpm_df = tpm_df.reindex(sorted(tpm_df.columns), axis=1)
@@ -67,8 +75,10 @@ def run(input_filepath, output_filepath, extension=".genes.results"):
 
     make_rna_df(tissue_tpm_dict, os.path.join(output_filepath,'tissue_tpm.csv'))
     make_rna_df(tissue_fpkm_dict, os.path.join(output_filepath,'tissue_fpkm.csv'))
+    make_rna_df(tissue_count_dict, os.path.join(output_filepath,'tissue_count.csv'))
     make_rna_df(sample_tpm_dict, os.path.join(output_filepath,'sample_tpm.csv'))
     make_rna_df(sample_fpkm_dict, os.path.join(output_filepath,'sample_fpkm.csv'))
+    make_rna_df(sample_count_dict, os.path.join(output_filepath,'sample_count.csv'))
 
     ###TODO: figure out how to make this silent
     subprocess.call (["Rscript", "--vanilla",

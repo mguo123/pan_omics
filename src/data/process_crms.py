@@ -27,6 +27,7 @@ files_dict = {
 
 def create_crm_batch(rna_file, tf_annon_file, annon_file_path, loop_file_path,
                      output_dir,files_dict=files_dict, type='all',
+                     random=False,choose_footprint=True,
                      tissues_sel = None,
                      THRES=1, verbose=False):
     """
@@ -76,7 +77,8 @@ def create_crm_batch(rna_file, tf_annon_file, annon_file_path, loop_file_path,
         # # #### DEBUG:
         # if tissue !='WM_shMITF_PLX':
         #     continue
-        print('creating crms for tissue', tissue)
+        if verbose:
+            print('creating crms for tissue', tissue)
         files_dict['tissue'] = tissue
         files_dict['loop_file'] = loop_file
 
@@ -87,28 +89,44 @@ def create_crm_batch(rna_file, tf_annon_file, annon_file_path, loop_file_path,
             print("atac_annon_file_promoter file not found", atac_annon_file_promoter)
             continue
 
-        atac_annon_file_anchor = os.path.join(annon_file_path, 'anchor_atac', tissue+'_annon.bed')
+        if random:
+            atac_annon_file_anchor = os.path.join(annon_file_path, 'anchor_atac_random', tissue+'_annon.bed')
+        else:
+            atac_annon_file_anchor = os.path.join(annon_file_path, 'anchor_atac', tissue+'_annon.bed')
         if os.path.isfile(atac_annon_file_anchor):
             files_dict['atac_annon_file_anchor'] = atac_annon_file_anchor
         else:
             print("atac_annon_file_anchor file not found", atac_annon_file_anchor)
             continue
 
-        footprinting_annon_file_promoter = os.path.join(annon_file_path, 'promoter_footprinting', 'promoter_'+tissue+'_annon.bed')
+        if choose_footprint:
+            footprinting_annon_file_promoter = os.path.join(annon_file_path, 'promoter_footprinting', 'promoter_'+tissue+'_annon.bed')
+        else:
+            footprinting_annon_file_promoter = os.path.join(annon_file_path, 'promoter_motif_scan', 'promoter_'+tissue+'_annon.bed')
         if os.path.isfile(footprinting_annon_file_promoter):
             files_dict['footprinting_annon_file_promoter'] = footprinting_annon_file_promoter
         else:
             print("footprinting_annon_file_promoter file not found", footprinting_annon_file_promoter)
             continue
 
-        footprinting_annon_file_anchor = os.path.join(annon_file_path, 'anchor_footprinting', tissue+'_annon.bed')
+        if random:
+            footprinting_annon_file_anchor = os.path.join(annon_file_path, 'anchor_footprinting_random', tissue+'_annon.bed')
+        elif not choose_footprint:
+            footprinting_annon_file_anchor = os.path.join(annon_file_path, 'anchor_motif_scan', tissue+'_annon.bed')
+        else:
+            footprinting_annon_file_anchor = os.path.join(annon_file_path, 'anchor_footprinting', tissue+'_annon.bed')
+
         if os.path.isfile(footprinting_annon_file_anchor):
             files_dict['footprinting_annon_file_anchor'] = footprinting_annon_file_anchor
         else:
             print("footprinting_annon_file_anchor file not found", footprinting_annon_file_anchor)
             continue
 
-        anchor_promoter_file = os.path.join(annon_file_path, 'promoter_anchors', 'promoter_'+tissue+'_annon.bed')
+        if random:
+            anchor_promoter_file = os.path.join(annon_file_path, 'promoter_anchors_random', 'promoter_'+tissue+'_annon.bed')
+
+        else:
+            anchor_promoter_file = os.path.join(annon_file_path, 'promoter_anchors', 'promoter_'+tissue+'_annon.bed')
         if os.path.isfile(anchor_promoter_file):
             files_dict['anchor_promoter_file'] = anchor_promoter_file
         else:
@@ -116,8 +134,9 @@ def create_crm_batch(rna_file, tf_annon_file, annon_file_path, loop_file_path,
             continue
 
         #
-        print('file check passed')
-        print(files_dict)
+        if verbose:
+            print('file check passed')
+            print(files_dict)
         # run crms
         crm_result = create_crm_per_tissue(files_dict,type=type, THRES=THRES, verbose=verbose )
         # if crm_result is None:
@@ -137,10 +156,10 @@ def create_crm_batch(rna_file, tf_annon_file, annon_file_path, loop_file_path,
     # saving
     if verbose:
         print('saving overall data tables')
-    write_all_data_tables(output_dir, type='promoter_only_tissue', save_prefix='pro')
-    write_all_data_tables(output_dir, type='pro_anc_loop_tissue', save_prefix='sep')
-    write_all_data_tables(output_dir, type='pro_loop_tissue', save_prefix='comb')
-    write_all_data_tables(output_dir, type='combined_tissue', save_prefix='sum')
+    write_all_data_tables(output_dir, type='promoter_only_tissue', save_prefix='pro', verbose=verbose)
+    write_all_data_tables(output_dir, type='pro_loop_tissue', save_prefix='comb', verbose=verbose)
+    write_all_data_tables(output_dir, type='combined_tissue', save_prefix='sum', verbose=verbose)
+    write_all_data_tables(output_dir, type='pro_anc_loop_tissue', save_prefix='sep', verbose=verbose)
 
     # if type=='all':
     #     all_count_pro_overall.to_csv(os.path.join(output_dir,'all_count_pro_overall.csv'))
@@ -152,7 +171,7 @@ def create_crm_batch(rna_file, tf_annon_file, annon_file_path, loop_file_path,
     #     all_count_overall.to_csv(os.path.join(output_dir,'all_count_overall_{}.csv'.format(type)))
 
 
-def write_all_data_tables(output_dir, type='promoter_only_tissue', save_prefix='pro'):
+def write_all_data_tables(output_dir, type='promoter_only_tissue', save_prefix='pro',verbose=False):
 
     """
     writing overall data table,
@@ -165,13 +184,18 @@ def write_all_data_tables(output_dir, type='promoter_only_tissue', save_prefix='
     Return: None
 
     """
+    output_filepath = os.path.join(output_dir,'all_count_'+ save_prefix + '_overall.csv')
+    if verbose:
+        print('saving ..', output_filepath)
     all_count_overall = pd.DataFrame()
 
     for tissue_crm_file in sorted(glob.glob(os.path.join(output_dir, type, '*csv'))):
         all_count = pd.read_csv(tissue_crm_file, index_col=0)
         all_count_overall = pd.concat([all_count_overall, all_count],sort=False).fillna(0)
 
-    all_count_overall.to_csv(os.path.join(output_dir,'all_count_'+ save_prefix + '_overall.csv'))
+    all_count_overall.to_csv(output_filepath)
+    if verbose:
+        print('done')
 
 
 
@@ -412,24 +436,29 @@ def get_foot_df(foot_file, annon_dict, rna_df, tissue, thres=1,verbose=False):
     filename = os.path.basename(foot_file)
     foot_df = pd.read_csv(foot_file,sep='\t',
                 header=None)
-    foot_df.columns = ['chr_p','start_p','stop_p','TSS','chr_f','start_f','stop_f','motif_id','score','-']
+    # print('orig', foot_file, foot_df.shape)
+    foot_df = foot_df.iloc[:,:9]
+    foot_df.columns = ['chr_p','start_p','stop_p','TSS','chr_f','start_f','stop_f','motif_id','score']
     foot_df['p_loc'] = foot_df.chr_p + '_' + foot_df.start_p.map(str) + '_' + foot_df.stop_p.map(str)
     foot_df['f_loc'] = foot_df.chr_f + '_' + foot_df.start_f.map(str) + '_' + foot_df.stop_f.map(str)
     foot_df[['motif_abbr','motif_info']]=foot_df['motif_id'].str.split("_",expand=True)
     foot_df['animal']=foot_df['motif_info'].str.split(".",expand=True).loc[:,0]
     # human tfs only
     foot_df = foot_df[foot_df.animal=='HUMAN']
+    # print('human', foot_df.shape)
 
     # mapping motif --> TF with the annotation dictionary
     foot_df['TF'] = foot_df.motif_abbr.map(annon_dict)
     foot_df = foot_df[~foot_df.TF.isna()]
+    # print('post tf mapping', foot_df.shape)
 
     # get expression from rna_df
     foot_df['TF_exp']= foot_df.TF.apply(lambda x: get_exp(rna_df, x, tissue,verbose=verbose))
     foot_df_filt = foot_df[foot_df.TF_exp>thres]
     foot_df_filt = foot_df_filt[['TSS','TF', 'p_loc']]
 
-
+    # print('post thres', foot_df_filt.shape)
+    # raise
     return foot_df_filt
 
 
