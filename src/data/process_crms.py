@@ -11,6 +11,7 @@ need to combine the data/interim/annon files
 import os, glob
 import pandas as pd
 from collections import Counter, defaultdict
+import pybedtools
 
 files_dict = {
     'rna_file':'pass',
@@ -487,6 +488,123 @@ def get_tf_dict(annon_file):
     annon_df[['motif_abbr','motif_info']]=annon_df['id'].str.split("_",expand=True)
     annon_dict = pd.Series(annon_df.tf.values, index=annon_df.motif_abbr.values).to_dict()
     return annon_dict
+
+def get_cgenes_by_tissue(interest_bed_filepath, data_dir, tissues, save_prefix=None, verbose=False):
+    """
+    calls get_cgenes for a tissue but wraps up the info by tissues
+
+    Inputs:
+        interest_bed_filepath = <str> file path to a bed file with 'chr', 'start','stop', 'name', as headers, in a tab delimited fashion
+        data_dir: <str>, where the data is stored ie.:'/Users/mguo123/Google Drive/1_khavari/omics_project-LD/pan_omics/data'
+        tissues = <list> i.e. ['GDSD0','GDSD3','GDSD6'] of tissues to pick
+        save_prefix = optional, <str> if not None, then will save genes as txt file 1 per line, when calling get_cgenes
+            i.e. 'save_path/interestgroupname'
+        verbose = optional,<bool> to print more info
+
+
+    return
+        tissue_to_genes: <dict> key = tissues;  values  = tuple output of get_cgenes (anchor_genes, loop_genes)
+    """
+    # make a dictionary of filepaths to call:
+    tissue_to_genes = {}
+    for tissue in tissues:
+        # get file paths
+        hichip_anchor_filepath = os.path.join(data_dir, 'interim/merged/anchors_bed_sort',tissue+'_sort.bed')
+        if not os.path.exists(hichip_anchor_filepath):
+            print('Error: hichip_anchor_filepath does not exist', hichip_anchor_filepath)
+            continue
+        hichip_loop_filepath = os.path.join(data_dir, 'interim/merged/loops',tissue+'.loops.csv')
+        if not os.path.exists(hichip_loop_filepath):
+            print('Error: hichip_loop_filepath does not exist', hichip_loop_filepath)
+            continue
+        anchor_promoter_filepath = os.path.join(data_dir, 'interim/annon/promoter_anchors','promoter_'+tissue+'_annon.bed')
+        if not os.path.exists(anchor_promoter_filepath):
+            print('Error: anchor_promoter_filepath does not exist', anchor_promoter_filepath)
+            continue
+
+        tissue_to_genes[tissue] = get_cgenes(interest_bed_filepath, hichip_anchor_filepath, hichip_loop_filepath, anchor_promoter_filepath,
+                                            save_prefix=save_prefix+'_'+tissue,verbose=verbose)
+
+    return tissue_to_genes
+
+
+def get_cgenes(interest_bed_filepath, hichip_anchor_filepath, hichip_loop_filepath, anchor_promoter_filepath,
+                save_prefix=None, verbose=False):
+    """
+    from a bed file of interest annotate genes proximal (in anchor) and distal (looped) to genomic intervals of interest
+
+    can also save the genes as a txt file (1 gene per line)
+
+    Inputs:    all <str>
+        interest_bed_filepath = file path to a bed file with 'chr', 'start','stop', 'name', as headers, in a tab delimited fashion
+        hichip_anchor_filepath = file like '/Users/mguo123/Documents/pan_omics_psych/data/interim/merged/anchors_bed_sort/SL_D2_sort.bed'
+        hichip_loop_filepath = file like '../data/interim/merged/loops/GDSD3.loops.csv'
+        anchor_promoter_file = file like: '/Users/mguo123/Documents/pan_omics_psych/data/interim/annon/promoter_anchors/promoter_H9_D2_annon.bed'
+        save_prefix = optional, if not None, then will save genes as txt file 1 per line
+                with "_genes_anchor.txt" and '_genes_loop.txt' added to prefix for anchor and loop genes respectively
+    Return: tuple of two list of strings
+        interest_anchor_cgenes - list of gene symbols in anchor regions associatd with bed files of interest
+        interest_loop_cgenes - list of gene symbols in looped regions associatd with bed files of interest
+    """
+    tissue = os.path.basename(anchor_promoter_filepath).split('promoter_')[-1].split('_annon')[0]
+    if verbose:
+        print('***')
+        print('getting cgenes for: ',interest_bed_filepath, 'in tissue:', tissue)
+        print('hichip_anchor_filepath: ',hichip_anchor_filepath)
+        print('hichip_loop_filepath: ',hichip_loop_filepath)
+        print('anchor_promoter_filepath: ',anchor_promoter_filepath)
+
+    # map bed_file_interest to anchors, then select out two columns one with the anchor and the other with the name from the interest_bed
+    interest_bed = pybedtools.BedTool(interest_bed_filepath).sort()
+    if verbose:
+        print('# peaks in interest bed: ', len(interest_bed))
+    # check to make sure bedfile has at least 4 columns: (first 4 cols should be chr, start, stop, name),colnames do not have to be exact
+    if pybedtools.BedTool(interest_bed_filepath).to_dataframe().shape[1]<4:
+        raise ValueError('interest_bed_filepath needs to have 4 columns: chr, start, stop, name. please edit than try again')
+
+    interest_anchor_bed = interest_bed.intersect(pybedtools.BedTool(hichip_anchor_filepath).sort(), wo=True, sorted=True, names='db')
+    interest_anchor_df =  pybedtools.BedTool(interest_anchor_bed).to_dataframe()
+    interest_anchor_df = interest_anchor_df[['thickEnd', 'name']]
+    interest_anchor_df.columns = ['p_loc', 'name']
+
+    # get anchor promoter data frame (map anchors to there promoter (gene))
+    anchor_promoter_annon_df =  pybedtools.BedTool(anchor_promoter_filepath).to_dataframe()
+    anchor_promoter_annon_df.columns = ['chr_p','start_p','stop_p','TSS','chr_f','start_f','stop_f','anchor','overlap']
+    anchor_annon_df_filt = anchor_promoter_annon_df.sort_values('overlap', ascending=False).drop_duplicates(['TSS','anchor']).sort_index()
+    anchor_annon_df_filt = anchor_annon_df_filt[['anchor','TSS']]
+
+    # read in loops, then "annotate" the source TSS regions the loop anchors
+    loop_df_bi = make_loop_df(hichip_loop_filepath)
+    loop_df_bi = loop_df_bi.merge(anchor_annon_df_filt,how='inner',left_on='source',right_on='anchor' )
+
+    # annotate intervals of interest with genes that occur in the anchor region associated with those regions
+    interest_anchor_df_anchor = interest_anchor_df.merge(anchor_annon_df_filt,how='inner', left_on='p_loc',right_on='anchor')
+    interest_anchor_cgenes =sorted(interest_anchor_df_anchor.TSS.unique())
+
+    # annotate intervals of interest with genes that are looped to those regions
+    interest_anchor_df_loop = interest_anchor_df.merge(loop_df_bi,how='inner', left_on='p_loc',right_on='target')
+    interest_loop_cgenes = sorted(interest_anchor_df_loop.TSS.unique())
+
+
+
+    if save_prefix is not None:
+        interest_anchor_cgenes_file = save_prefix +'_genes_anchor.txt'
+        interest_loop_cgenes_file = save_prefix +'_genes_loop.txt'
+        with open(interest_anchor_cgenes_file, 'w') as f:
+            for g in interest_anchor_cgenes:
+                f.write("%s\n" % g)
+        with open(interest_loop_cgenes_file, 'w') as f:
+            for g in interest_loop_cgenes:
+                f.write("%s\n" % g)
+        print('wrote genes to file with save_prefix: ',save_prefix)
+
+    if verbose:
+        print('# anchor cgenes:', len(interest_anchor_cgenes))
+        print('# loop cgenes:', len(interest_loop_cgenes))
+        print('done...')
+    return interest_anchor_cgenes, interest_loop_cgenes
+
+
 
 def make_loop_df(loop_file):
     """
