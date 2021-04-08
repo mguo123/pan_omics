@@ -193,8 +193,37 @@ def make_csvs(input_filepath, output_filepath, split_delim = '.', extension=".lo
             merged_anchor_df.to_csv(os.path.join(anchors_bed_dir, tissue+type_prefix+'.anchors.bed'),sep='\t', index=False, header=False)
 
 
+def make_bedpe_from_csv(merged_loop_csv_path, output_path):
+    """
+    run after make_csvs
 
+    makes bedpe folders for
 
+    """
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
 
+    # get files to loop through
+    files = glob.glob(os.path.join(merged_loop_csv_path, '*.loops.csv'))
+    for file in files:
+        # make per tissue output folder (this ist the HiCDir that's inputted into the ABC model)
+        tissue = os.path.basename(file).split('.')[0]
+        tissue_dir = os.path.join(output_path, tissue)
+        if not os.path.exists(tissue_dir):
+            os.makedirs(tissue_dir)
 
-# def sort_bed_file(input_bedfile,ouput_bedfile):
+        # read in loops.csv and format as bedpe file format
+        loop_df = pd.read_csv(file, index_col=0)
+        loop_df[['chr1','x1','x2']] = loop_df.source.str.split('_',expand=True)
+        loop_df[['chr2','y1','y2']] = loop_df.target.str.split('_',expand=True)
+        loop_df['name'] = loop_df.source + '::' + loop_df.target
+        loop_df['hic_contact'] = loop_df['count']
+        loop_df = loop_df[['chr1','x1','x2','chr2','y1','y2','name','hic_contact']]
+
+        # loop through all chromosomes and save if necessary
+        chromosomes = sorted(set(list(loop_df['chr1'].unique()) + list(loop_df['chr2'].unique()) ))
+        for chrom in chromosomes:
+            df_chr = loop_df[(loop_df.chr1 ==chrom) & (loop_df.chr2==chrom)]
+            df_chr.to_csv(os.path.join(tissue_dir, chrom+'.bedpe.gz'), header=None, index=None, sep='\t', compression='gzip')
+        print('tissue processed..',tissue)
+        print(chromosomes)
