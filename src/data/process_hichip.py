@@ -197,7 +197,7 @@ def make_bedpe_from_csv(merged_loop_csv_path, output_path):
     """
     run after make_csvs
 
-    makes bedpe folders for
+    makes bedpe folders for ABC model
 
     """
     if not os.path.exists(output_path):
