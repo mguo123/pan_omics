@@ -1,0 +1,65 @@
+---
+title: "get rsid snp locations"
+output: html_notebook
+---
+get rsid snp locations for some cancer snps to be fed into ukbiobank
+
+4.7.2021
+
+```{r}
+library(tidyverse)
+library(motifbreakR)
+
+library(SNPlocs.Hsapiens.dbSNP144.GRCh37)
+
+# BiocManager::install('BSgenome.Hsapiens.UCSC.hg19')
+library(BSgenome)
+library(BSgenome.Hsapiens.UCSC.hg19)
+
+```
+
+```{r}
+rsid_df = read.csv('../data/external/GWAS/cancer_mpra_snps_withlead.csv')#,index_col=0)
+# rsid_df['seq_id'] = rsid_df.seqnames.map(str) + ':' + rsid_df.pos.map(str)
+dim(rsid_df)
+colnames(rsid_df)
+rsid_df = separate_rows(rsid_df, lead_SNP, sep = "[,]")
+rsid_df = separate_rows(rsid_df, expanded_lead_SNPs, sep = "[,]")
+dim(rsid_df)
+colnames(rsid_df) = c('linked_snp','lead_snp','expanded_lead_snp','disease','hit')
+head(rsid_df)
+
+# pivotting
+rsid_df = pivot_longer(rsid_df, cols=c('linked_snp','lead_snp', 'expanded_lead_snp'), names_to='snp_type', values_to='rsid')
+dim(rsid_df)
+rsid_df = rsid_df%>%distinct()%>% filter(rsid!='NA')
+dim(rsid_df)
+length(unique(rsid_df$rsid))
+head(rsid_df)
+
+dim(filter(rsid_df, !str_detect(rsid, '^rs'))) # check to make sure everything starts with rs
+
+```
+
+```{r}
+# takes some time to get the variant info
+variants <- snps.from.rsid(rsid = rsid_df$rsid,
+                           dbSNP = SNPlocs.Hsapiens.dbSNP144.GRCh37,
+                           search.genome = BSgenome.Hsapiens.UCSC.hg19)
+```
+
+
+```{r}
+# annotate variants back to rsid
+variants_df = data.frame(variants)
+rsid_df_annon =rsid_df%>% 
+    left_join(variants_df, by=c('rsid'='SNP_id'))%>%
+   mutate(chr=str_replace(seqnames,"chr",""))%>%
+    mutate(seq_id = str_c(chr, ':',start))%>%
+    drop_na('seq_id')
+dim(rsid_df_annon)
+length(unique(rsid_df_annon$seq_id))
+head(rsid_df_annon)
+write.csv(rsid_df_annon,'../data/external/GWAS/cancer_mpra_snps_withlead_annon.csv')
+```
+

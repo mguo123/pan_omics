@@ -1,0 +1,193 @@
+---
+title: "2DR_atac_diff_analysis_updated"
+output: html_notebook
+---
+ATAC differential analysis 
+
+updated 06/25/2021 with removing GDSD0 and GDSD3
+
+
+```{r}
+library(org.Hs.eg.db)
+# library(EnsDb.Hsapiens.v75)
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+# BiocManager::install("TxDb.Hsapiens.UCSC.hg19.knownGene")
+library(TxDb.Hsapiens.UCSC.hg19.knownGene)
+# BiocManager::install("AnnotationDbi")
+library(DiffBind)
+library(ChIPQC)
+library(ChIPseeker)
+library(ChIPpeakAnno)
+library(DESeq2)
+library(soGGi)
+library(Rsubread)
+library(tracktables)
+
+library(limma)
+
+library(pheatmap)  
+library(RColorBrewer)
+library(viridis)
+library(reshape2)
+library(AnnotationDbi) 
+library(Biobase)
+library(tximport)
+
+library(tidyverse)
+library(stringr)
+library(Rtsne)
+library(caret)  
+library(clusterProfiler)
+library(pheatmap)
+library(AnnotationDbi)
+library(ReactomePA)
+library(annotate)
+library(seqinr)
+save_pheatmap_png <- function(x, filename, width=1200, height=1000, res = 200) {
+  png(filename, width = width, height = height, res = res)
+  grid::grid.newpage()
+  grid::grid.draw(x$gtable)
+  dev.off()
+}
+
+save_pheatmap_pdf <- function(x, filename, width=7, height=7) {
+   stopifnot(!missing(x))
+   stopifnot(!missing(filename))
+   pdf(filename, width=width, height=height)
+   grid::grid.newpage()
+   grid::grid.draw(x$gtable)
+   dev.off()
+}
+
+```
+
+
+load data
+
+
+
+```{r}
+save_dir="/Users/mguo123/Google Drive/1_khavari/omics_project-LD/pan_omics/data/processed/fig1/atac/"
+load(paste0(save_dir,"consensusToCount.RData"))
+load(paste0(save_dir,"countsFromATAC.RData"))
+normal_tissues = c('Airway','Astrocytes','Bladder','Colon','Esophageal',
+# 'GDSD0',
+# 'GDSD3',
+'GDSD6',
+'GM12878',
+'HMEC',
+'Melanocytes',
+'Ovarian',
+'Pancreas',
+'Prostate',
+'Renal',
+'Thyroid',
+'Uterine')
+myCounts=myCounts[,normal_tissues]
+
+Group <- factor(c("purple","blue","purple","green","green","purple",   "grey",
+                  "purple","blue", "green","green","purple", "green","green","purple"))
+annon_df <- data.frame("group_ori"=Group, row.names = colnames(myCounts))
+
+
+```
+
+
+# deseq2
+```{r}
+# takes awhile
+# for (group in c("grey","blue", "green","purple")){
+logFC_thres = 0.1
+p_thres = 0.05
+sig_peak_list = list()
+sig_peak_combined = c()
+sig_gene_list = list()
+sig_gene_combined = c()
+
+# for (group in c("grey","blue1", 'blue2', "green","purple")){
+for (group in c("grey","blue", "green","purple")){
+    metaData = annon_df %>%  
+        rownames_to_column('tissues') %>%
+        mutate(group = if_else(group_ori==group, "target", "control") )%>%
+        dplyr::select(group, tissues)%>%
+        column_to_rownames('tissues')
+
+    atacDDS <- DESeqDataSetFromMatrix(myCounts, metaData, ~group, rowRanges = consensusToCount)
+    atacDDS <- DESeq(atacDDS)
+    atac_Rlog <- rlog(atacDDS)
+    print(group)
+    
+    group_peaks <- results(atacDDS, c("group", "target", "control"), format = "GRanges")
+#     group_peaks <- green_grey[order(group_peaks$pvalue)]
+    group_peaks_anno = annotatePeak(group_peaks, TxDb = TxDb.Hsapiens.UCSC.hg19.knownGene)
+    
+    group_peaks_df <- as.data.frame(group_peaks_anno)
+    group_peaks_df$symbol <- mapIds(org.Hs.eg.db, keys=group_peaks_df$geneId, column="SYMBOL", keytype="ENTREZID", multiVals="first")
+    group_peaks_df_filt = group_peaks_df[(group_peaks_df$log2FoldChange>logFC_thres)  & (group_peaks_df$padj<p_thres),]
+    group_peaks_df_filt = group_peaks_df_filt%>% arrange(padj)%>% arrange(desc(log2FoldChange))
+    group_peaks_df_filt = group_peaks_df_filt%>%
+        mutate(name = paste('ID', seqnames, as.character(start),as.character(end), sep = "_"))
+    print(dim(group_peaks_df_filt))
+    sig_peak_list[[group]] = group_peaks_df_filt$name
+    sig_peak_combined = c(sig_peak_combined,group_peaks_df_filt$name)
+    sig_gene_list[[group]] = group_peaks_df_filt$symbol
+    sig_gene_combined = c(sig_gene_combined,group_peaks_df_filt$symbol)
+}
+```
+
+# Preprocessing peaks
+```{r}
+max_num = 10000
+sig_peak_combined_max = c(sig_peak_list$grey[1:max_num],sig_peak_list$blue[1:max_num],
+  sig_peak_list$green[1:max_num],sig_peak_list$purple[1:max_num])
+
+sig_peak_combined_gene = c(sig_gene_list$grey[1:max_num],sig_gene_list$blue[1:max_num],
+  sig_gene_list$green[1:max_num],sig_gene_list$purple[1:max_num])
+
+peak_to_gene = data.frame("peaks"=sig_peak_combined_max,"gene"=sig_peak_combined_gene )
+
+
+length(sig_peak_combined_max)
+# sig_genes_combined = unique(sort(sig_genes_combined))
+sig_peak_combined_max = unique(sig_peak_combined_max)
+length(sig_peak_combined_max)
+
+
+```
+
+
+
+# plotting
+```{r}
+normal_tissue_order = c('GM12878',
+                        'Astrocytes', 'Melanocytes',
+                         'Colon',  'Esophageal','Ovarian', 'Pancreas','Renal','Thyroid',
+                        'Airway','Bladder','GDSD6','HMEC','Prostate','Uterine')
+
+log_counts = log2(myCounts+1)
+log_counts_norm = as.data.frame(scale(log_counts, center = TRUE, scale = TRUE))
+
+tissue_peak_sig = log_counts_norm[sig_peak_combined_max,normal_tissue_order]
+
+# tissue_peak_sig = log_counts_norm[sig_peak_combined,normal_tissue_order]
+# rna_df_tissue_norm_sig = rna_df_tissue_norm[sig_genes_sel,normal_tissue_order]
+dim(tissue_peak_sig)
+# tissue_peak_sig[tissue_peak_sig>3] = 3
+# tissue_peak_sig[tissue_peak_sig< -3] = -3
+tissue_peak_sig = tissue_peak_sig[apply(tissue_peak_sig,1,max)>0 ,]
+tissue_peak_sig = tissue_peak_sig[apply(tissue_peak_sig,1,sum)< 7,]
+tissue_peak_sig = tissue_peak_sig[apply(tissue_peak_sig,1,sd)>0.2 ,]
+select_peaks = rownames(tissue_peak_sig)
+dim(tissue_peak_sig)
+
+p_10000 = pheatmap(tissue_peak_sig,
+             cluster_rows=F,
+             cluster_cols=F,
+                show_rownames=F,
+             annotation_col=annon_df,
+               color = colorRampPalette(rev(brewer.pal(n =8, name ="RdBu")))(255))
+save_pheatmap_pdf(p_10000, paste0(save_dir, 'atac_heatmap_no_genes.pdf'), width=8, height=8)
+```
+
