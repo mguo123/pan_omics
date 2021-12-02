@@ -204,7 +204,7 @@ def make_bedpe_from_csv(merged_loop_csv_path, output_path):
         os.makedirs(output_path)
 
     # get files to loop through
-    files = glob.glob(os.path.join(merged_loop_csv_path, '*.loops.csv'))
+    files = sorted(glob.glob(os.path.join(merged_loop_csv_path, '*.loops.csv')))
     for file in files:
         # make per tissue output folder (this ist the HiCDir that's inputted into the ABC model)
         tissue = os.path.basename(file).split('.')[0]
